@@ -5,6 +5,27 @@ Before mastering the syntax, we must understand the discipline. We are moving aw
 
 ---
 
+## Table of contents
+- [1. The Hierarchy of AI Adaptation](#1-the-hierarchy-of-ai-adaptation)
+- [2. What is Prompt Engineering?](#2-what-is-prompt-engineering)
+- [3. Why "Prompt Engineering" Fails for Fabric Data Agents](#3-why-prompt-engineering-fails-for-fabric-data-agents)
+- [4. Conclusion: The Shift to Architecture](#4-conclusion-the-shift-to-architecture)
+- [Art of Context Engineering](#the-art-of-context-engineering)
+  - [Core Philosophy](#1-the-core-philosophy)
+  - [Markdown Attention Mechanics](#2-the-mechanics-of-markdown-attention)
+  - [R.C.O.F. Framework](#3-the-rcof-framework)
+  - [Master Template](#4-the-master-template)
+  - [Quickstart](#quickstart)
+  - [Example: Business Intent → SQL](#example-business-intent--sql)
+  - [Testing & Validation](#testing--validation)
+  - [Advanced Sources & Training (Semantic Model / Lakehouse / Warehouse)](#advanced-sources--training-semantic-model--lakehouse--warehouse)
+  - [Prep Data for AI](#prep-data-for-ai)
+  - [Ontology Design & Usage](#ontology-design--usage)
+  - [Templates & Repo Files](#templates--repo-files)
+  - [Contributing & License](#contributing--license)
+
+---
+
 ## 1. The Hierarchy of AI Adaptation
 When working with Large Language Models (LLMs), there are three distinct levels of control. Understanding where you operate is critical for success.
 
@@ -56,10 +77,15 @@ We are not "Prompting" the Fabric Agent. We are defining its **Constitution**.
 *This guide focuses exclusively on **Level 2: Context Engineering**—using Markdown Architecture to build robust, enterprise-grade Data Agents.*
 
 ---
+
 # 📘 The Art of Context Engineering
 ### *Commanding Large Language Models with Markdown Architecture*
 
-> **Repository Goal:** To formalize the discipline of structuring system prompts for reliable, high-performance AI Agents (Microsoft Fabric, Copilot, Custom LLMs). Moving beyond "Prompt Engineering" to "System Architecture."
+> **Repository Goal:** To formalize the discipline of structuring system prompts for reliable, high-performance Data Agents (Microsoft Fabric, Copilot, Custom LLMs). Moving beyond "Prompt Engineering" to reproducible, auditable Context Engineering patterns, templates, and tests.
+
+For implementation references and SDK examples see:
+- Microsoft Fabric docs: [Fabric Data Agent (Microsoft Learn)](https://learn.microsoft.com/en-us/fabric/data-science/fabric-data-agent)  
+- Microsoft sample SDK and examples: [microsoft/fabric-samples - data-agent-sdk](https://github.com/microsoft/fabric-samples/tree/bbf03d0b558b47551486eee8e2686940e8473dc2/docs-samples/data-science/data-agent-sdk)
 
 ---
 
@@ -138,31 +164,265 @@ When analyzing a request, follow this logical path:
 > * Do not assume data that is not present.
 > * Do not use markdown code blocks for simple text.
 ```
-## 5. Case Study: The "Wall of Text" vs. "The Architect"
-
-### ❌ The Amateur Approach (Wall of Text)
-> "You are a data assistant. Help the CEO understand sales. Don't use technical words and make sure you verify the data before answering. If sales are down say so. Also keep it short."
-
-* **The Flaw:** The model treats "verify data" and "keep it short" with equal weight. It might forget one.
-
-### ✅ The "God Level" Approach (Context Engineered)
-
-```markdown
-# ROLE
-You are a **Strategic Advisor** to the CEO.
-
-## EXECUTION RULES
-1.  **Verify:** Check data validity before speaking.
-2.  **Simplify:** Use *zero* technical jargon (no SQL, no GUIDs).
-
-## ALERTING LOGIC
-> **IF** `Sales_Growth` < 0% **THEN** start response with "⚠️ **Performance Alert**".
-
-## FORMAT
-Keep all responses under **50 words**.
-```
-
-* **The Win:** The logic is undeniable. The "Alerting Logic" is visually distinct, making it nearly impossible for the model to ignore.
 
 ---
-*Authored by Sahil | AI Engineer & Data Strategist*
+
+## Quickstart
+Get a minimal agent running using these steps:
+
+1. Copy a template from /templates to your Fabric Agent workspace (see [Templates & Repo Files](#templates--repo-files)).
+2. Replace bracketed ROLE/CONTEXT values with your organization-specific definitions and dataset mappings.
+3. Add dataset-to-field mappings (e.g., map "Customer.ID" → "Customers.customer_id").
+4. Run the included validation notebook (or run the sample queries below) to verify SQL/DAX/KQL outputs and that forbidden rules are applied.
+5. Add the system prompt .md to your agent runtime as the persistent system persona.
+
+---
+
+## Example: Business Intent → SQL
+A short worked example showing how R.C.O.F. maps intent to concrete logic.
+
+Role: Analytics Agent  
+Context: In this company, "High Value Client" = `lifetime_spend > 50000`  
+Output rule: Always append `WHERE lifetime_spend > 50000` when querying Customers
+
+Before (naive prompt)
+```sql
+SELECT customer_id, lifetime_spend FROM Customers;
+```
+
+After (context-engineered)
+```sql
+SELECT customer_id, lifetime_spend
+FROM Customers
+WHERE lifetime_spend > 50000 -- Enforced by system CONTEXT: High Value Client
+```
+
+Another example: For Sales queries, the system must automatically exclude internal transfers:
+System rule: ALWAYS append `AND TransferType <> 'Internal'` when querying Sales.
+
+---
+
+## Testing & Validation
+To keep agents reliable and auditable, add automated checks:
+
+- Schema checks: verify required columns exist before executing generated SQL/DAX/KQL.
+- Sanity checks: enforce numeric ranges (e.g., revenue >= 0).
+- Query filters: confirm required WHERE clauses or data governance filters are present.
+- Unit tests: small test matrix of natural-language prompts → expected SQL/DAX/KQL templates.
+- Drift monitoring: sample agent outputs periodically and fail the CI if forbidden patterns appear.
+
+Suggested test artifact names:
+- tests/validation_notebook.ipynb
+- tests/test_prompt_to_sql.py
+- tests/schema_manifest.json
+
+---
+
+## Advanced Sources & Training (Semantic Model / Lakehouse / Warehouse)
+
+This section expands on practical strategies and training guidance when the agent's knowledge comes from different Fabric sources. Each source has different characteristics and trade-offs—context engineering must adapt to them.
+
+General guidance for all sources:
+- Always include a schema manifest and a canonical name map (logical name → physical name).
+- Provide small, curated example queries for each data domain (golden queries).
+- Enforce governance filters (e.g., PII removal, row-level security) at the context level so any generated query respects them.
+
+### Semantic Model as Source
+When to use:
+- The Semantic Model (Fabric semantic models / Power BI semantic layer) is ideal when business logic and measures are already modeled (calculated columns, measures, friendly names, synonyms).
+
+How to integrate:
+- Use the semantic model as the canonical vocabulary: map user intents and entity names to the semantic model's measures and dimensions.
+- Store canonical synonyms in the system CONTEXT: e.g., "ARR" → `Measures.TotalARR`, "Active Clients" → `DimCustomer[ActiveFlag] = 1`.
+- For RAG: use the semantic model metadata (descriptions, measure formulas) as high-signal retrieval documents — it helps the LLM produce accurate measure names and avoid inventing calculations.
+
+Training / Context patterns:
+- Include short, explicit measure examples in the system persona:
+  > EXAMPLE MEASURE: "Revenue" maps to `Measures.NetRevenue` which excludes refunds and internal transfers.
+- Provide the LLM with measure definitions and calculation formulas as fenced code blocks — the model should treat these as authoritative.
+
+Practical enforcement:
+- When generating DAX, prefer returning the semantic measure name rather than raw SQL, and validate that the generated DAX calls only allowed measures.
+- Validate output with the semantic model: if a generated expression references a non-existent measure or misuses aggregation, reject or rewrite.
+
+References:
+- Use semantic layer examples from the Fabric Data Agent SDK and from your project's semantic model manifests to populate the CONTEXT.
+- See sample SDK patterns: [microsoft/fabric-samples - data-agent-sdk](https://github.com/microsoft/fabric-samples/tree/bbf03d0b558b47551486eee8e2686940e8473dc2/docs-samples/data-science/data-agent-sdk)
+
+### Lakehouse as Source
+When to use:
+- Use the Lakehouse when data is semi-structured or you require access to raw, event-level records, text, or documents that need preprocessing and embedding (e.g., customer support logs, invoices, documents).
+
+How to integrate:
+- Create a preprocessing pipeline to normalize, chunk, and embed textual content stored in the lakehouse (Delta files).
+- Keep a metadata manifest per table/file with canonical column names, partition keys, and update frequency.
+- Build a vector store of embeddings for textual records, and store document pointers (file path, row id, partition) to enable deterministic retrieval.
+
+Training / Context patterns:
+- Provide the agent with retrieval rules: prefer semantic search on embeddings for free-text queries and fallback to SQL when intents map to structured column queries.
+- Include instructions for chunking: max token size, overlap percentage, and how to include source attribution in answers.
+
+Example pipeline (Lakehouse → RAG):
+1. Extract textual fields from Delta files (e.g., support_text, comments).
+2. Clean, normalize, and canonicalize (lowercase, remove PII, strip HTML).
+3. Chunk long documents into ~500–1000 token pieces with overlap.
+4. Generate embeddings and index in vector store (store metadata: table, partition, row_id).
+5. In agent CONTEXT: provide top-k retrieved chunks (with provenance) and a strict instruction: "Only use retrieved chunks and explicitly cite `source:file:path#rowid`."
+
+Practical enforcement:
+- Disallow free-form hallucination over lakehouse content. Require the agent to say "Data not found" when top-k retrieval has insufficient similarity.
+- For derived metrics, prefer materialized views in the Lakehouse to avoid expensive on-the-fly computations.
+
+### Warehouse as Source
+When to use:
+- Use the Warehouse (Fabric Warehouse / dedicated SQL endpoints) for high-performance, aggregated analytics and when strict ACID semantics or complex joins are required.
+
+How to integrate:
+- Map logical business names to warehouse tables and materialized views.
+- Provide the agent with a manifest of optimized query templates and allowed parameter ranges.
+- Enforce query cost limits and add pre-execution checks (explain plan estimate or row limit).
+
+Training / Context patterns:
+- Keep a library of approved warehouse query templates and "golden queries" for common business questions.
+- In the system persona include performance guardrails:
+  > *Do not generate queries without an indexable WHERE clause. If user intent is broad, ask a clarifying question.*
+
+Practical enforcement:
+- Validate generated SQL with a static analyzer before running (deny full-table scans, require where clause on partition key).
+- For aggregations, prefer referencing materialized views (pre-aggregated data) provided in the context.
+
+---
+
+## Prep Data for AI
+
+Preparation of data is critical — LLMs and RAG pipelines rely on high-quality, canonicalized, and well-documented sources. "Prep Data for AI" spans both the technical ETL and the semantic design work.
+
+Primary steps:
+
+1. Discovery & Inventory
+   - Catalog datasets, semantic models, table schemas, text fields, and sample rows.
+   - Produce a schema_manifest.json that includes column types, required columns, PII flags, and sample values.
+
+2. Clean & Normalize
+   - Standardize date/time formats, currencies, units.
+   - Null handling policy (fill with sentinel values or exclude).
+   - Deduplicate and canonicalize identifiers (customer_id, product_sku).
+
+3. Enrich & Canonicalize
+   - Create mapping tables for synonyms and common aliases (e.g., "qty" → quantity).
+   - Aggregate raw facts into domain-specific measures (e.g., lifetime_spend).
+   - Compute derived columns that are used frequently in semantics (status flags, cohorts).
+
+4. Annotate & Label
+   - Add human-readable descriptions for every column and measure (used in semantic model docs).
+   - Label text segments for training retrieval or classification tasks (intent labels, entity spans).
+
+5. Chunking & Embedding (for textual sources)
+   - Decide chunk size and overlap.
+   - Store chunk metadata (source table, path, row id, chunk id).
+   - Create a regular update pipeline for embeddings.
+
+6. Build Schema & Data Contracts
+   - Define stable data contracts for the agent to rely on: schemas, column types, availability SLAs.
+   - Version the contract (contract v1, v2) to allow safe updates.
+
+7. Security & Governance (apply early)
+   - Tag PII and apply redaction/obfuscation rules in the preprocessing pipeline.
+   - Apply row-level security filters by default in CONTEXT (e.g., limit to user’s tenant).
+
+Practical artifacts to add to repo:
+- schema_manifest.json (machine-readable)
+- canonical_name_map.yaml (logical → physical)
+- embedding_pipeline.md (docs + sample code)
+- preprocessing_notebook.ipynb
+
+---
+
+## Ontology Design & Usage
+
+An ontology turns domain knowledge into a structured, machine-readable map that the agent can reliably use. Where possible, link ontologies into the semantic model and lakehouse manifests.
+
+Why ontology matters:
+- Eliminates ambiguity (is "client" a person or company?)
+- Provides canonical identifiers (URI-style IDs) so generated queries refer to stable entities.
+- Enables relationship traversal (Customer → Orders → Invoices) without ambiguous free text.
+
+Core ontology components:
+- Classes (e.g., Customer, Product, Invoice)
+- Properties (attributes, e.g., Customer.lifetime_spend)
+- Relationships (e.g., Customer PLACED Order)
+- Synonym list (mapping user terms to canonical properties)
+- Constraints and cardinalities (one-to-many, optional/required)
+
+How to use in your Context Engineering:
+- Include a compact ontology extract in the CONTEXT (fenced and indexed).
+- Provide mapping rules: "When user asks about 'client', prefer Customer class. When ambiguous, ask for clarification."
+- Use ontology for entity resolution before generating SQL: map user entity to canonical table + join path.
+
+Example snippet (ontology fragment)
+```yaml
+Customer:
+  id: Customer.customer_id
+  synonyms: [client, buyer, account]
+  properties:
+    - lifetime_spend: numeric, definition: "Total net spend across all orders"
+    - active_flag: boolean
+Order:
+  id: Orders.order_id
+  relationships:
+    - placed_by: Customer.customer_id
+```
+
+Versioning & governance:
+- Store ontologies in /ontology with a changelog and version tags.
+- Keep a living document that business owners can edit and validate.
+
+---
+
+## Putting it together: Example Flow (Semantic Model + Lakehouse + Ontology)
+1. User: "Show revenue for our high-value clients in Q4."
+2. Agent flow:
+   - Entity resolution via ontology: "high-value client" → Customer.lifetime_spend > 50000
+   - Map semantic names to semantic model measures: "revenue" → Measures.NetRevenue
+   - Retrieve relevant lakehouse documents if needed (e.g., invoices) for provenance
+   - Generate a warehouse query referencing materialized views or semantic measures
+   - Pre-execution static checks (RLS, required WHERE, cost limit)
+   - Return structured result with provenance and a note on confidence
+
+---
+
+## Templates & Repo Files
+This repository should include:
+- /templates/system_prompt_agent.md — R.C.O.F.-based system prompt examples (SQL, DAX, KQL variants)
+- /templates/quickstart_sample.md — minimal example and instructions to drop into Fabric
+- /templates/semantic_model_examples.md — sample semantic model fragments and mapping instructions
+- /templates/lakehouse_embedding_pipeline.md — sample ETL & embedding pipeline
+- /ontology — ontology files (YAML/JSON-LD) with versioning
+- /tests — validation notebooks and unit tests
+- /examples — before/after prompts and queries
+
+Add these as starting artifacts so teams can copy and adapt.
+
+---
+
+## Contributing & License
+We welcome contributions: small examples, new templates, or validation checks. Suggested files for PRs:
+- Add a new template under /templates with a short README describing dataset mapping.
+- Add unit tests under /tests for every template.
+- Add ontology updates under /ontology with a migration note.
+
+License: Add your preferred license (e.g., MIT).  
+Contributing guide: Add CONTRIBUTING.md with PR template and testing instructions.
+
+---
+
+## Roadmap & Next Steps
+- Add runnable Fabric notebook examples demonstrating end-to-end ingestion → query → agent response.
+- Add CI checks to run tests/validation_notebook.ipynb automatically.
+- Provide a sample agent runtime config for Microsoft Fabric and Copilot integration.
+- Populate /templates and /ontology with concrete examples from your own datasets.
+
+---
+
+*Authored by Sahil | AI Engineer & Data Strategist*  
+References: Microsoft Learn ([Fabric Data Agent](https://learn.microsoft.com/en-us/fabric/data-science/fabric-data-agent)), Microsoft samples ([microsoft/fabric-samples - data-agent-sdk](https://github.com/microsoft/fabric-samples/tree/bbf03d0b558b47551486eee8e2686940e8473dc2/docs-samples/data-science/data-agent-sdk))
