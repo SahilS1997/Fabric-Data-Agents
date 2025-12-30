@@ -1,3 +1,61 @@
+# 🗺️ The Taxonomy of AI Interaction
+### *Where "Context Engineering" fits in the AI Landscape*
+
+Before mastering the syntax, we must understand the discipline. We are moving away from "Chatting" and towards "Architecting."
+
+---
+
+## 1. The Hierarchy of AI Adaptation
+When working with Large Language Models (LLMs), there are three distinct levels of control. Understanding where you operate is critical for success.
+
+| Level | Discipline | Definition | User Role |
+| :--- | :--- | :--- | :--- |
+| **Level 3** | **Fine-Tuning** | Changing the model's internal weights (Brain surgery). | Data Scientist |
+| **Level 2** | **Context Engineering** | **Architecting the environment, rules, and knowledge base.** | **AI Engineer (You)** |
+| **Level 1** | **Prompt Engineering** | Crafting the input text for a single response. | End User / Prompt Writer |
+
+> **Context Engineering** (Level 2) is the sweet spot for Enterprise AI. It offers the stability of fine-tuning without the massive cost, and the flexibility of prompting without the fragility.
+
+---
+
+## 2. What is Prompt Engineering?
+**Definition:** Prompt Engineering is the iterative process of refining the text input (the "prompt") to guide an LLM toward a desired output.
+
+* **Where is it used?** ChatGPT, Midjourney, Copywriting, Email drafting, Code assistance.
+* **The Workflow:** Trial and error. "Make it shorter." "No, make it funnier." "Add a list."
+* **The Limitation:** It is **Stateless**. Once the chat window closes, the "engineering" is lost. It relies entirely on the user's ability to ask the right question *every single time*.
+
+---
+
+## 3. Why "Prompt Engineering" Fails for Fabric Data Agents
+You cannot rely on Prompt Engineering when building a **Microsoft Fabric Data Agent**. Here is why:
+
+### A. The "Stateless" Trap
+A Prompt Engineer creates a perfect question. A Context Engineer creates a **System Persona**.
+* **Prompting:** Relying on the user to say, *"Please query the Sales Table and exclude internal transfers."*
+* **Context Engineering:** Hard-coding a system rule: *"Usage of the 'Sales' table MUST always exclude `TransferType = Internal` automatically."*
+
+### B. The Consequence of Error (Hallucination)
+In creative writing (Prompt Engineering), a hallucination is funny. In Data Analytics (Fabric), a hallucination is a **compliance violation**.
+* If ChatGPT guesses a poem, it's fine.
+* If a Fabric Agent guesses a revenue figure because the prompt was weak, the CFO makes a bad decision.
+
+### C. The Complexity of RAG (Retrieval Augmented Generation)
+Fabric Agents don't just "talk"; they **execute**. They translate English into **SQL**, **DAX**, or **KQL**.
+* Prompt Engineering is insufficient to teach an LLM complex database schemas.
+* **Context Engineering** is required to map "Business Intent" (e.g., "High Value Client") to "Database Logic" (e.g., `WHERE spend > 50000`).
+
+---
+
+## 4. Conclusion: The Shift to Architecture
+We are not "Prompting" the Fabric Agent. We are defining its **Constitution**.
+
+* **Prompt Engineering** = "Asking the car to turn left."
+* **Context Engineering** = "Building the guardrails on the side of the road so the car cannot crash."
+
+*This guide focuses exclusively on **Level 2: Context Engineering**—using Markdown Architecture to build robust, enterprise-grade Data Agents.*
+
+---
 # 📘 The Art of Context Engineering
 ### *Commanding Large Language Models with Markdown Architecture*
 
